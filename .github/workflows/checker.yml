@@ -1,0 +1,41 @@
+name: City24 Checker
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # every 30 minutes
+  workflow_dispatch:         # manual trigger
+
+jobs:
+  run-checker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps
+
+      - name: Run checker
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cat > config.yaml <<EOF
+          search_url: "https://www.city24.lv/your-search-url-with-filters"
+          telegram:
+            bot_token: "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            chat_id: "${{ secrets.TELEGRAM_CHAT_ID }}"
+          filters:
+            min_price: 0
+            max_price: 300000
+          EOF
+
+          python check_city24.py
