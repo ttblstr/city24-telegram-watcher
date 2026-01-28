@@ -1,13 +1,9 @@
-search_url: "https://www.city24.lv/real-estate-search/houses-for-sale"
+search_url: "https://www.city24.lv/real-estate-search/houses-for-sale/marupes-nov/id=245326-county"
 telegram:
   bot_token: "8593535226:AAG6ufFw-_RpEYMgaw9EZ9U-xpFPm-C-0w4"
   chat_id: "8553045366"       # your chat id (user or group)
 filters:
   min_price: 0
   max_price: 300000
-  regions:                     # optional: list of human-readable regions (for message)
-    - "Bieriņi"
-    - "Āgenskalns"
-    - "Mārupe"
 message:
   max_per_run: 20              # max new notifications per run
