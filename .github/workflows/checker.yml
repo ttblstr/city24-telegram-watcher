@@ -1,41 +1,63 @@
-name: City24 Checker
+name: City24 watcher
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: '*/30 * * * *'   # every 30 minutes
-  workflow_dispatch:         # manual trigger
+    - cron: "*/30 * * * *"
 
 jobs:
-  run-checker:
+  run:
     runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CITY24_SEARCH_URL_1: ${{ secrets.CITY24_SEARCH_URL_1 }}
+      CITY24_SEARCH_URL_2: ${{ secrets.CITY24_SEARCH_URL_2 }}
+      CITY24_SEARCH_URL_3: ${{ secrets.CITY24_SEARCH_URL_3 }}
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+
+      - name: Restore seen.json cache
+        uses: actions/cache@v4
+        with:
+          path: seen.json
+          key: city24-seen-v1
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          playwright install --with-deps
+          playwright install --with-deps chromium
 
-      - name: Run checker
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Create config.yaml from secrets
         run: |
           cat > config.yaml <<EOF
-          search_url: "https://www.city24.lv/your-search-url-with-filters"
+          search_urls:
+            - "${CITY24_SEARCH_URL_1}"
+            - "${CITY24_SEARCH_URL_2}"
+            - "${CITY24_SEARCH_URL_3}"
           telegram:
-            bot_token: "${{ secrets.TELEGRAM_BOT_TOKEN }}"
-            chat_id: "${{ secrets.TELEGRAM_CHAT_ID }}"
+            bot_token: "${TELEGRAM_BOT_TOKEN}"
+            chat_id: "${TELEGRAM_CHAT_ID}"
           filters:
             min_price: 0
             max_price: 300000
+          message:
+            max_per_run: 10
           EOF
 
-          python check_city24.py
+      - name: Run watcher
+        run: python check_city24.py
+
+      - name: Upload seen.json (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-json
+          path: seen.json
