@@ -8,7 +8,6 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +15,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Restore seen.json cache
+        uses: actions/cache@v4
+        with:
+          path: seen.json
+          key: city24-seen-v1
 
       - name: Install dependencies
         run: |
@@ -48,3 +53,10 @@ jobs:
 
       - name: Run watcher
         run: python check_city24.py
+
+      - name: Upload seen.json (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-json
+          path: seen.json
