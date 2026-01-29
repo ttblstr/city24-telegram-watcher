@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-import json, re, time, traceback
+import json
+import re
+import time
+import traceback
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -36,25 +39,29 @@ def normalize_url(base, href):
 def extract_price(text):
     if not text:
         return None
-    m = re.search(r'(\d[\d\s]*\d)\s*€', text)
-    if m:
-        try:
-            return int(m.group(1).replace(" ", ""))
-        except ValueError:
-            return None
-    return None
+    m = re.search(r"(\d[\d\s]*\d)\s*€", text)
+    if not m:
+        return None
+    try:
+        return int(m.group(1).replace(" ", ""))
+    except ValueError:
+        return None
 
 def send_telegram(bot_token, chat_id, text):
     bot = Bot(token=bot_token)
-    return bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", disable_web_page_preview=False)
+    return bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode="HTML",
+        disable_web_page_preview=False,
+    )
 
 def scrape_listings(page, search_url, max_visit=40):
-    anchors = set()
-
     page.goto(search_url, timeout=60000)
     page.wait_for_selector("body", timeout=15000)
     time.sleep(2)
 
+    anchors = set()
     selectors = [
         "a:has-text('Uzzināt vairāk')",
         "article a",
@@ -79,7 +86,10 @@ def scrape_listings(page, search_url, max_visit=40):
             continue
 
     anchors_full = [normalize_url(search_url, h) for h in anchors]
-    anchors_full = [u for u in anchors_full if u and urlparse(u).netloc.endswith("city24.lv")]
+    anchors_full = [
+        u for u in anchors_full
+        if u and urlparse(u).netloc.endswith("city24.lv")
+    ]
     anchors_full = sorted(set(anchors_full))
 
     found = []
@@ -101,7 +111,10 @@ def scrape_listings(page, search_url, max_visit=40):
             except Exception:
                 pass
             if not title:
-                title = page.title() or ""
+                try:
+                    title = page.title() or ""
+                except Exception:
+                    title = ""
 
             price_text = ""
             for sel in [".price", ".object-price", ".offer-price", ".ad-price", ".price-block", ".price--value"]:
@@ -115,7 +128,7 @@ def scrape_listings(page, search_url, max_visit=40):
 
             if not price_text:
                 txt = page.inner_text("body")[:5000]
-                m = re.search(r'(\d[\d\s]*\d)\s*€', txt)
+                m = re.search(r"(\d[\d\s]*\d)\s*€", txt)
                 if m:
                     price_text = m.group(0)
 
@@ -129,6 +142,7 @@ def scrape_listings(page, search_url, max_visit=40):
 
             price = extract_price(price_text)
             found.append((u, title, price, snippet))
+
         except Exception:
             traceback.print_exc()
             continue
@@ -143,13 +157,18 @@ def main():
     if not bot_token or not chat_id:
         raise SystemExit("Missing telegram.bot_token or telegram.chat_id in config.yaml")
 
+    # Supports either search_urls (list) or search_url (single)
     search_urls = cfg.get("search_urls")
+    if not search_urls:
+        single = cfg.get("search_url")
+        if single:
+            search_urls = [single]
     if not search_urls or not isinstance(search_urls, list):
-        raise SystemExit("Missing search_urls list in config.yaml")
+        raise SystemExit("Missing search_urls (list) or search_url in config.yaml")
 
-    max_per_run = cfg.get("message", {}).get("max_per_run", 10)
     minp = cfg.get("filters", {}).get("min_price")
     maxp = cfg.get("filters", {}).get("max_price")
+    max_per_run = cfg.get("message", {}).get("max_per_run", 10)
 
     seen_map = load_seen()
     for su in search_urls:
